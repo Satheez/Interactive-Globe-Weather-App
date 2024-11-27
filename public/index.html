@@ -1,0 +1,95 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Interactive Globe with Weather Info</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    #globeViz { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    #infoBox {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 15px;
+      border-radius: 5px;
+      max-width: 300px;
+      font-family: Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="globeViz"></div>
+  <div id="infoBox"></div>
+
+  <!-- Include Three.js and Globe.gl -->
+  <script src="https://unpkg.com/three@0.143.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/globe.gl"></script>
+
+  <!-- Main Script -->
+  <script>
+  // Select DOM elements
+  const globeElement = document.getElementById('globeViz');
+  const infoBox = document.getElementById('infoBox');
+
+  // Initialize the globe
+  const world = Globe()
+    .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+    .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
+    (globeElement);
+
+  // Function to fetch and display weather data
+  async function fetchWeatherData(lat, lng) {
+    try {
+      const response = await fetch(`/weather?lat=${lat}&lon=${lng}`);
+      const data = await response.json();
+
+      // Display weather information
+      infoBox.innerHTML = `
+        <h3>${data.location.name}, ${data.location.country}</h3>
+        <p><strong>Temperature:</strong> ${data.current.temp_c}°C</p>
+        <p><strong>Weather:</strong> ${data.current.condition.text}</p>
+        <p><strong>Humidity:</strong> ${data.current.humidity}%</p>
+        <p><strong>Wind Speed:</strong> ${data.current.wind_kph} kph</p>
+      `;
+    } catch (error) {
+      console.error('Error fetching weather data:', error);
+      infoBox.innerHTML = '<p>Error fetching weather data.</p>';
+    }
+  }
+
+  // Function to move the globe to a specific location
+  function moveToLocation(lat, lng) {
+    world.pointOfView({ lat, lng, altitude: 2 }, 1000); // Smooth transition
+    fetchWeatherData(lat, lng);
+  }
+
+  // Use Geolocation API to get user's location
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        console.log(`User's location: ${latitude}, ${longitude}`);
+        moveToLocation(latitude, longitude);
+      },
+      (error) => {
+        console.warn(`Geolocation error (${error.code}): ${error.message}`);
+        // Fallback: Move to a default location (e.g., Equator)
+        moveToLocation(0, 0);
+      }
+    );
+  } else {
+    console.warn('Geolocation is not supported by this browser.');
+    // Fallback: Move to a default location
+    moveToLocation(0, 0);
+  }
+
+  // Handle globe clicks
+  world.onGlobeClick(({ lat, lng }) => {
+    console.log(`Clicked at latitude: ${lat}, longitude: ${lng}`);
+    moveToLocation(lat, lng);
+  });
+</script>
+</body>
+</html>
